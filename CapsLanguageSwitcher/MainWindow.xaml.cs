@@ -7,10 +7,20 @@ namespace CapsLanguageSwitcher
     {
         private NotifyIcon _notifyIcon;
         private bool _isExit;
-        public MainWindow()
+        public MainWindow(string v)
         {
             InitializeComponent();
             InitTray();
+            LookAtMyVersion(v);
+        }
+
+        /// <summary>
+        /// Выводит версию приложения в окне
+        /// </summary>
+        /// <param name="v">Текущая версия приложения</param>
+        private void LookAtMyVersion(string v)
+        {
+            VersionTextBlock.Text = $"β {v}";
         }
 
         /// <summary>

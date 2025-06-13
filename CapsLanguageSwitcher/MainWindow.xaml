@@ -47,5 +47,13 @@
                 TextAlignment="Center"
                 TextWrapping="WrapWithOverflow" />
         </StackPanel>
+        <TextBlock
+            x:Name="VersionTextBlock"
+            Margin="0,0,4,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Foreground="White"
+            Opacity="0.2"
+            Text="v" />
     </Grid>
 </Window>
