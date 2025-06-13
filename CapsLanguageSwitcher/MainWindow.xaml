@@ -55,5 +55,13 @@
             Foreground="White"
             Opacity="0.2"
             Text="v" />
+        <CheckBox
+            x:Name="AutoStartCheckBox"
+            Margin="4,0,0,2"
+            VerticalAlignment="Bottom"
+            Checked="AutoStartCheckBox_Checked"
+            Content="Запускать с Windows"
+            Foreground="White"
+            Unchecked="AutoStartCheckBox_Unchecked" />
     </Grid>
 </Window>

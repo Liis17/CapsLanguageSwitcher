@@ -7,7 +7,7 @@ namespace CapsLanguageSwitcher
     public partial class App : Application
     {
         private KeyboardHook _hook;
-        private string _version = "0.1.1";
+        private string _version = "0.1.2";
 
         /// <summary>
         /// Метод OnStartup переопределяет поведение запуска приложения, устанавливая обработчик события нажатия клавиши Caps для переключения языка и отключения клавиши Caps Lоск

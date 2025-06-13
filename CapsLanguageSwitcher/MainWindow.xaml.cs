@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using Microsoft.Win32;
+using System.Diagnostics;
+using System.Windows;
 using Application = System.Windows.Application;
 
 namespace CapsLanguageSwitcher
@@ -7,11 +9,16 @@ namespace CapsLanguageSwitcher
     {
         private NotifyIcon _notifyIcon;
         private bool _isExit;
+        private const string AppName = "CapsLanguageSwitcher";
         public MainWindow(string v)
         {
             InitializeComponent();
             InitTray();
             LookAtMyVersion(v);
+            Loaded += (s, e) =>
+            {
+                AutoStartCheckBox.IsChecked = IsAutoStartEnabled();
+            };
         }
 
         /// <summary>
@@ -22,6 +29,8 @@ namespace CapsLanguageSwitcher
         {
             VersionTextBlock.Text = $"β {v}";
         }
+
+        #region Трей и контекстное меню
 
         /// <summary>
         /// Инициализирует иконку в трее
@@ -87,5 +96,61 @@ namespace CapsLanguageSwitcher
             _notifyIcon.Dispose();
             Application.Current.Shutdown();
         }
+        #endregion
+
+        #region Автозагрузка
+
+        /// <summary>
+        /// Активация чекбокса автозапуска
+        /// </summary>
+        private void AutoStartCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            SetAutoStart(true);
+        }
+
+        /// <summary>
+        /// Деактивация чекбокса автозапуска
+        /// </summary>
+        private void AutoStartCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            SetAutoStart(false);
+        }
+
+        /// <summary>
+        /// Добавляет/удаляет это приложение из автозагрузки
+        /// </summary>
+        /// <param name="enable">Передать нужное состояние автозагрузки</param>
+        private void SetAutoStart(bool enable)
+        {
+            string exePath = Process.GetCurrentProcess().MainModule.FileName;
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(
+                       @"Software\Microsoft\Windows\CurrentVersion\Run", true))
+            {
+                if (enable)
+                {
+                    key.SetValue(AppName, $"\"{exePath}\"");
+                }
+                else
+                {
+                    key.DeleteValue(AppName, false);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Проверяет, включена ли автозагрузка для этого приложения
+        /// </summary>
+        /// <returns>Возвращает true, если автозагрузка включена; в противном случае false.</returns>
+        private bool IsAutoStartEnabled()
+        {
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(
+                       @"Software\Microsoft\Windows\CurrentVersion\Run", false))
+            {
+                string value = key?.GetValue(AppName) as string;
+                string exePath = Process.GetCurrentProcess().MainModule.FileName;
+                return value != null && value.Trim('"').Equals(exePath, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        #endregion
     }
 }
