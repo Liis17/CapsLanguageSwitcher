@@ -32,7 +32,8 @@
 
 ## Скриншоты
 
-![изображение](https://github.com/user-attachments/assets/552e4671-07df-489b-b259-8a2e36e1da51) 
+<img width="529" height="559" alt="изображение" src="https://github.com/user-attachments/assets/81fbb565-185f-4262-9cc5-856a0660bb15" />
+
 ![изображение](https://github.com/user-attachments/assets/4d596632-d381-4b55-850d-fe7aacf5a637)
 
 
