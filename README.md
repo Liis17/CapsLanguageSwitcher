@@ -46,16 +46,6 @@
 
 ---
 
-## Сборка
-
-```powershell
-dotnet build CapsLanguageSwitcher.sln -c Release
-```
-
-Опубликованная сборка лежит в `CapsLanguageSwitcher\bin\Release\net10.0-windows10.0.26100.0\`.
-
----
-
 ## Скриншоты
 
 <img width="529" height="559" alt="изображение" src="https://github.com/user-attachments/assets/81fbb565-185f-4262-9cc5-856a0660bb15" />
