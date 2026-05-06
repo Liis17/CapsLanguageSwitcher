@@ -1,40 +1,92 @@
-﻿using Microsoft.Win32;
-using System.Diagnostics;
+using Microsoft.Win32;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Interop;
 using Application = System.Windows.Application;
 
 namespace CapsLanguageSwitcher
 {
     public partial class MainWindow : Window
     {
-        private NotifyIcon _notifyIcon;
+        private NotifyIcon? _notifyIcon;
+        private Icon? _trayIcon;
+        private ToolStripMenuItem? _trayOpenItem;
+        private ToolStripMenuItem? _trayExitItem;
+
         private bool _isExit;
+        private bool _suppressSettingsHandlers;
+
         private const string AppName = "CapsLanguageSwitcher";
-        public MainWindow(string v)
+
+        public ICommand ExitAppCommand { get; }
+
+        public MainWindow()
         {
             InitializeComponent();
+
+            ExitAppCommand = new RelayCommand(ExitApp);
+
+            var app = (App)Application.Current;
+            VersionTextBlock.Text = $"β {app.AppVersion}";
+
             InitTray();
-            LookAtMyVersion(v);
-            Loaded += (s, e) =>
-            {
-                AutoStartCheckBox.IsChecked = IsAutoStartEnabled();
-            };
+
+            LocalizationService.LanguageChanged += UpdateTrayLocalization;
+
+            Loaded += OnLoaded;
+            SourceInitialized += OnSourceInitialized;
         }
 
-        /// <summary>
-        /// Выводит версию приложения в окне
-        /// </summary>
-        /// <param name="v">Текущая версия приложения</param>
-        private void LookAtMyVersion(string v)
+        private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            VersionTextBlock.Text = $"β {v}";
+            var app = (App)Application.Current;
+
+            _suppressSettingsHandlers = true;
+            try
+            {
+                AutoStartCheckBox.IsChecked = IsAutoStartEnabled();
+                SelectComboBoxByTag(MethodComboBox, app.Settings.SwitchMethod.ToString());
+                SelectComboBoxByTag(LanguageComboBox, app.Settings.Language);
+            }
+            finally
+            {
+                _suppressSettingsHandlers = false;
+            }
+        }
+
+        private void OnSourceInitialized(object? sender, EventArgs e)
+        {
+            var helper = new WindowInteropHelper(this);
+            var source = HwndSource.FromHwnd(helper.Handle);
+            source?.AddHook(WndProc);
+        }
+
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if ((uint)msg == SingleInstance.WM_SHOWME)
+            {
+                ShowWindow();
+                handled = true;
+            }
+            return IntPtr.Zero;
+        }
+
+        private static void SelectComboBoxByTag(System.Windows.Controls.ComboBox box, string tag)
+        {
+            foreach (var item in box.Items)
+            {
+                if (item is ComboBoxItem cbi && string.Equals(cbi.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase))
+                {
+                    box.SelectedItem = cbi;
+                    return;
+                }
+            }
+            if (box.Items.Count > 0) box.SelectedIndex = 0;
         }
 
         #region Трей и контекстное меню
 
-        /// <summary>
-        /// Инициализирует иконку в трее
-        /// </summary>
         private void InitTray()
         {
             _notifyIcon = new NotifyIcon();
@@ -44,21 +96,27 @@ namespace CapsLanguageSwitcher
             if (streamInfo != null)
             {
                 using var iconStream = streamInfo.Stream;
-                _notifyIcon.Icon = new Icon(iconStream);
+                _trayIcon = new Icon(iconStream);
+                _notifyIcon.Icon = _trayIcon;
             }
             else
             {
                 _notifyIcon.Icon = SystemIcons.Warning;
             }
             _notifyIcon.Visible = true;
-            _notifyIcon.Text = "Caps -> Переключатель языка";
 
             var contextMenu = new ContextMenuStrip();
-            contextMenu.Items.Add("Открыть", null, (_, __) => ShowWindow());
-            contextMenu.Items.Add("Выход", null, (_, __) => ExitApp());
+            _trayOpenItem = new ToolStripMenuItem();
+            _trayOpenItem.Click += (_, __) => ShowWindow();
+            _trayExitItem = new ToolStripMenuItem();
+            _trayExitItem.Click += (_, __) => ExitApp();
+            contextMenu.Items.Add(_trayOpenItem);
+            contextMenu.Items.Add(_trayExitItem);
 
             _notifyIcon.ContextMenuStrip = contextMenu;
             _notifyIcon.DoubleClick += (_, __) => ShowWindow();
+
+            UpdateTrayLocalization();
 
             this.StateChanged += (_, __) =>
             {
@@ -68,89 +126,161 @@ namespace CapsLanguageSwitcher
 
             this.Closing += (s, e) =>
             {
-                if (!_isExit)
+                if (_isExit) return;
+
+                bool shiftHeld = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+                if (shiftHeld)
                 {
-                    e.Cancel = true;
-                    this.Hide();
+                    ExitApp();
+                    return;
                 }
+
+                e.Cancel = true;
+                this.Hide();
             };
         }
 
-        /// <summary>
-        /// Действие на "Открыть" в контекстном меню трея
-        /// </summary>
+        private void UpdateTrayLocalization()
+        {
+            if (_notifyIcon == null) return;
+            _notifyIcon.Text = LocalizationService.GetString("TrayTooltip");
+            if (_trayOpenItem != null) _trayOpenItem.Text = LocalizationService.GetString("TrayOpen");
+            if (_trayExitItem != null) _trayExitItem.Text = LocalizationService.GetString("TrayExit");
+        }
+
         private void ShowWindow()
         {
             this.Show();
-            this.WindowState = WindowState.Normal;
+            if (this.WindowState == WindowState.Minimized)
+                this.WindowState = WindowState.Normal;
             this.Activate();
+            this.Topmost = true;
+            this.Topmost = false;
+            this.Focus();
         }
 
-        /// <summary>
-        /// Действие на "Выход" в контекстном меню трея
-        /// </summary>
         private void ExitApp()
         {
             _isExit = true;
-            _notifyIcon.Visible = false;
-            _notifyIcon.Dispose();
+            if (_notifyIcon != null)
+            {
+                _notifyIcon.Visible = false;
+                _notifyIcon.ContextMenuStrip?.Dispose();
+                _notifyIcon.Dispose();
+                _notifyIcon = null;
+            }
+            _trayIcon?.Dispose();
+            _trayIcon = null;
+            LocalizationService.LanguageChanged -= UpdateTrayLocalization;
             Application.Current.Shutdown();
+        }
+        #endregion
+
+        #region Настройки
+
+        private void MethodComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressSettingsHandlers) return;
+            if (MethodComboBox.SelectedItem is not ComboBoxItem cbi) return;
+
+            var tag = cbi.Tag?.ToString();
+            if (Enum.TryParse<SwitchMethod>(tag, out var method))
+            {
+                var app = (App)Application.Current;
+                app.Settings.SwitchMethod = method;
+                SettingsService.Save(app.Settings);
+            }
+        }
+
+        private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressSettingsHandlers) return;
+            if (LanguageComboBox.SelectedItem is not ComboBoxItem cbi) return;
+
+            var tag = cbi.Tag?.ToString();
+            if (string.IsNullOrEmpty(tag)) return;
+
+            try
+            {
+                LocalizationService.SetLanguage(tag);
+            }
+            catch
+            {
+                return;
+            }
+
+            var app = (App)Application.Current;
+            app.Settings.Language = tag;
+            SettingsService.Save(app.Settings);
         }
         #endregion
 
         #region Автозагрузка
 
-        /// <summary>
-        /// Активация чекбокса автозапуска
-        /// </summary>
         private void AutoStartCheckBox_Checked(object sender, RoutedEventArgs e)
         {
+            if (_suppressSettingsHandlers) return;
             SetAutoStart(true);
         }
 
-        /// <summary>
-        /// Деактивация чекбокса автозапуска
-        /// </summary>
         private void AutoStartCheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
+            if (_suppressSettingsHandlers) return;
             SetAutoStart(false);
         }
 
-        /// <summary>
-        /// Добавляет/удаляет это приложение из автозагрузки
-        /// </summary>
-        /// <param name="enable">Передать нужное состояние автозагрузки</param>
+        private static string GetExePath() => Environment.ProcessPath ?? AppContext.BaseDirectory;
+
         private void SetAutoStart(bool enable)
         {
-            string exePath = Process.GetCurrentProcess().MainModule.FileName;
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(
-                       @"Software\Microsoft\Windows\CurrentVersion\Run", true))
+            try
             {
+                using RegistryKey? key = Registry.CurrentUser.OpenSubKey(
+                    @"Software\Microsoft\Windows\CurrentVersion\Run", true);
+                if (key == null) return;
+
                 if (enable)
                 {
-                    key.SetValue(AppName, $"\"{exePath}\"");
+                    key.SetValue(AppName, $"\"{GetExePath()}\"");
                 }
                 else
                 {
                     key.DeleteValue(AppName, false);
                 }
             }
+            catch
+            {
+            }
         }
 
-        /// <summary>
-        /// Проверяет, включена ли автозагрузка для этого приложения
-        /// </summary>
-        /// <returns>Возвращает true, если автозагрузка включена; в противном случае false.</returns>
         private bool IsAutoStartEnabled()
         {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(
-                       @"Software\Microsoft\Windows\CurrentVersion\Run", false))
+            try
             {
-                string value = key?.GetValue(AppName) as string;
-                string exePath = Process.GetCurrentProcess().MainModule.FileName;
-                return value != null && value.Trim('"').Equals(exePath, StringComparison.OrdinalIgnoreCase);
+                using RegistryKey? key = Registry.CurrentUser.OpenSubKey(
+                    @"Software\Microsoft\Windows\CurrentVersion\Run", false);
+                if (key == null) return false;
+
+                string? value = key.GetValue(AppName) as string;
+                if (string.IsNullOrEmpty(value)) return false;
+
+                string exePath = GetExePath();
+                return value.Trim('"').Equals(exePath, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
             }
         }
         #endregion
+
+        private sealed class RelayCommand : ICommand
+        {
+            private readonly Action _execute;
+            public RelayCommand(Action execute) => _execute = execute;
+            public event EventHandler? CanExecuteChanged { add { } remove { } }
+            public bool CanExecute(object? parameter) => true;
+            public void Execute(object? parameter) => _execute();
+        }
     }
 }

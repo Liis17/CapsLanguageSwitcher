@@ -1,0 +1,27 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <sys:String x:Key="WindowTitle">CapsLanguageSwitcher</sys:String>
+    <sys:String x:Key="AppTitle">CapsLock Language Switcher</sys:String>
+    <sys:String x:Key="Description">Press CapsLock to switch the keyboard layout.</sys:String>
+    <sys:String x:Key="Hint">You can minimize the app — it will keep running in the tray.</sys:String>
+
+    <sys:String x:Key="AdminWarningTitle">Warning</sys:String>
+    <sys:String x:Key="AdminWarningBody">Windows running as administrator may block CapsLock interception. Run the app as administrator so switching works in such windows.</sys:String>
+
+    <sys:String x:Key="SwitchMethodLabel">Layout switching method</sys:String>
+    <sys:String x:Key="MethodPostMessage">PostMessage (classic)</sys:String>
+    <sys:String x:Key="MethodSendInput">Simulated Win+Space (universal)</sys:String>
+
+    <sys:String x:Key="LanguageLabel">Interface language</sys:String>
+    <sys:String x:Key="AutoStart">Start with Windows</sys:String>
+
+    <sys:String x:Key="TrayOpen">Open</sys:String>
+    <sys:String x:Key="TrayExit">Exit</sys:String>
+    <sys:String x:Key="TrayTooltip">CapsLock → Language switcher</sys:String>
+
+    <sys:String x:Key="HookErrorTitle">Keyboard hook error</sys:String>
+    <sys:String x:Key="HookErrorBody">Failed to install the global keyboard hook. The app will keep running, but CapsLock layout switching will not work until restart.</sys:String>
+</ResourceDictionary>
